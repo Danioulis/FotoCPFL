@@ -3,22 +3,25 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:paddingBottom="@dimen/activity_vertical_margin"
-    android:paddingLeft="@dimen/activity_horizontal_margin"
-    android:paddingRight="@dimen/activity_horizontal_margin"
-    android:paddingTop="@dimen/activity_vertical_margin"
     tools:context="com.widowsoftware.daniel.fotocpfl.MainActivity"
-    android:background="@drawable/instrucoes">
+    android:background="@drawable/borda">
 
+    <FrameLayout
+        android:layout_width="365dp"
+        android:layout_height="310dp"
+        android:id="@+id/previewCamera"
+        android:layout_gravity="right"
+        android:layout_marginTop="15dp"
+        android:layout_marginRight="15dp" />
 
     <Button
         android:id="@+id/button_image"
         android:layout_width="wrap_content"
-        android:layout_height="48dp"
+        android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
         android:onClick="takePicture"
         android:text="Tirar foto!"
-        android:layout_gravity="right|bottom" />
+        android:layout_gravity="bottom|center_horizontal" />
 
 </FrameLayout>

@@ -4,6 +4,13 @@ import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Matrix;
+import android.graphics.Rect;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.hardware.Camera;
 import android.net.Uri;
 import android.os.Build;
@@ -15,12 +22,14 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -28,9 +37,13 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class MainActivity extends AppCompatActivity {
+    public final static String EXTRA_FOTO = "com.widowsoftware.FotoCPFL.FOTO";
+    public final static int MY_PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE = 150;
     Camera camera;
     private ViewCamera mPreview;
     Button tirarFoto;
+    FrameLayout fullFotoView;
+    ViewTreeObserver vto;
     public static final int MEDIA_TYPE_IMAGE = 1;
     public static final int MEDIA_TYPE_VIDEO = 2;
     @Override
@@ -38,21 +51,111 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         tirarFoto = (Button)findViewById(R.id.button_image);
+        fullFotoView = (FrameLayout)findViewById(R.id.comBorda);
+        vto  =  fullFotoView.getViewTreeObserver();
         tirarFoto.setOnClickListener(new View.OnClickListener(){
             @Override
-            public void onClick(View v){
-                camera.takePicture(null, null, mPicture);
+            public void onClick(View v) {
+                //fully drawn, no need of listener anymore
+                //getDrawingBitmap();
+                camera.takePicture(null,null,mPicture);
             }
-
         });
 
-        if(checkCameraHardware(this)){
+        if(checkCameraHardware(this) && checkFilePermission(this)){
             camera = getCameraInstance();
         }
         mPreview = new ViewCamera(this, camera);
         FrameLayout preview = (FrameLayout) findViewById(R.id.previewCamera);
         preview.addView(mPreview);
     }
+
+    public static Bitmap viewToBitmap(View view, int width, int height) {
+        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        view.draw(canvas);
+        return bitmap;
+    }
+
+    public static Bitmap overlay(Bitmap bmp1, Bitmap bmp2) {
+        Bitmap bmOverlay = Bitmap.createBitmap(bmp1.getWidth(), bmp1.getHeight(), bmp1.getConfig());
+        Canvas canvas = new Canvas(bmOverlay);
+        canvas.drawBitmap(bmp1, new Matrix(), null);
+        canvas.drawBitmap(bmp2,new Rect(0,0,bmp2.getWidth(),bmp2.getHeight()), new Rect(807,80, 2156,1423), null);
+        return bmOverlay;
+    }
+
+    public void getDrawingBitmap(File destination, String filename){
+        Drawable fotoPre = Drawable.createFromPath(destination.getPath());
+        Bitmap b = BitmapFactory.decodeResource(getResources(), R.drawable.borda);
+
+        SimpleDateFormat s = new SimpleDateFormat("ddMMyyyyhhmmss");
+        String format = s.format(new Date());
+        //String filename = "Foto: " + format +".png";
+        //File directory = Environment.getExternalStorageDirectory();
+        //File destination = new File(directory, filename);
+
+        //Bitmap b = viewToBitmap(fullFotoView,fullFotoView.getWidth(), fullFotoView.getHeight());
+        Bitmap c = ((BitmapDrawable) fotoPre).getBitmap();
+        Bitmap completo = overlay(b, c);
+        b.recycle();
+        b = null;
+        c.recycle();
+        c = null;
+        Intent intent = new Intent(this, EndActivity.class);
+        intent.putExtra(EXTRA_FOTO, filename);
+
+        FileOutputStream out = null;
+        try {
+            FileOutputStream outputFoto = new FileOutputStream(destination);
+            completo.compress(Bitmap.CompressFormat.PNG, 90, outputFoto);
+            outputFoto.flush();
+            outputFoto.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        completo.recycle();
+        completo = null;
+        System.gc();
+        Runtime.getRuntime().totalMemory();
+        Runtime.getRuntime().freeMemory();
+
+        startActivity(intent);
+    }
+
+    private Camera.PictureCallback mPicture = new Camera.PictureCallback() {
+
+        @Override
+        public void onPictureTaken(byte[] data, Camera camera) {
+
+            SimpleDateFormat s = new SimpleDateFormat("ddMMyyyyhhmmss");
+            String format = s.format(new Date());
+            String filename = "Foto: " + format +".png";
+            File directory = Environment.getExternalStorageDirectory();
+            File destination = new File(directory, filename);
+            if (destination == null){
+                Log.d("Error", "Error creating media file, check storage permissions.");
+                return;
+            }
+
+            try {
+                FileOutputStream fos = new FileOutputStream(destination);
+                fos.write(data);
+                fos.close();
+            } catch (FileNotFoundException e) {
+                Log.d("Error: ", "File not found: " + e.getMessage());
+            } catch (IOException e) {
+                Log.d("Error: ", "Error accessing file: " + e.getMessage());
+            }
+
+            camera.stopPreview();
+            camera.release();
+            camera = null;
+            getDrawingBitmap(destination, filename);
+
+
+        }
+    };
 
 
 
@@ -64,6 +167,8 @@ public class MainActivity extends AppCompatActivity {
         // and other activities might need to use it.
         if (camera != null) {
             camera.release();
+            FrameLayout preview = (FrameLayout) findViewById(R.id.previewCamera);
+            preview.removeView(mPreview);
             camera = null;
         }
     }
@@ -73,8 +178,13 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();  // Always call the superclass method first
 
         // Get the Camera instance as the activity achieves full user focus
+
         if (camera == null) {
             camera = getCameraInstance();
+            mPreview = new ViewCamera(this, camera);
+            FrameLayout preview = (FrameLayout) findViewById(R.id.previewCamera);
+            preview.addView(mPreview);
+            camera.startPreview();
         }
     }
 
@@ -105,65 +215,21 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private Camera.PictureCallback mPicture = new Camera.PictureCallback() {
+    private boolean checkFilePermission(Context context) {
+        int permissionCheck = ContextCompat.checkSelfPermission(MainActivity.this,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE  );
 
-        @Override
-        public void onPictureTaken(byte[] data, Camera camera) {
-
-            File pictureFile = getOutputMediaFile(MEDIA_TYPE_IMAGE);
-            if (pictureFile == null){
-                Log.d("Error", "Error creating media file, check storage permissions.");
-                return;
-            }
-
-            try {
-                FileOutputStream fos = new FileOutputStream(pictureFile);
-                fos.write(data);
-                fos.close();
-            } catch (FileNotFoundException e) {
-                Log.d("Error", "File not found: " + e.getMessage());
-            } catch (IOException e) {
-                Log.d("Error", "Error accessing file: " + e.getMessage());
-            }
+        if(permissionCheck != PackageManager.PERMISSION_GRANTED){
+            ActivityCompat.requestPermissions(MainActivity.this,
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                    MY_PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE);
         }
-    };
 
-    /** Create a file Uri for saving an image or video */
-    private static Uri getOutputMediaFileUri(int type){
-        return Uri.fromFile(getOutputMediaFile(type));
+        permissionCheck = ContextCompat.checkSelfPermission(MainActivity.this,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE  );
+
+        return permissionCheck == PackageManager.PERMISSION_GRANTED;
+
     }
 
-    /** Create a File for saving an image or video */
-    private static File getOutputMediaFile(int type){
-        // To be safe, you should check that the SDCard is mounted
-        // using Environment.getExternalStorageState() before doing this.
-
-        File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_PICTURES), "MinhasFotosAPP");
-        // This location works best if you want the created images to be shared
-        // between applications and persist after your app has been uninstalled.
-
-        // Create the storage directory if it does not exist
-        if (! mediaStorageDir.exists()){
-            if (! mediaStorageDir.mkdirs()){
-                Log.d("MinhasFotosAPP", "failed to create directory");
-                return null;
-            }
-        }
-
-        // Create a media file name
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        File mediaFile;
-        if (type == MEDIA_TYPE_IMAGE){
-            mediaFile = new File(mediaStorageDir.getPath() + File.separator +
-                    "IMG_"+ timeStamp + ".jpg");
-        } else if(type == MEDIA_TYPE_VIDEO) {
-            mediaFile = new File(mediaStorageDir.getPath() + File.separator +
-                    "VID_"+ timeStamp + ".mp4");
-        } else {
-            return null;
-        }
-
-        return mediaFile;
-    }
 }

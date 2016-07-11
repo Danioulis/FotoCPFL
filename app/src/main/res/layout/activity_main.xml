@@ -4,15 +4,24 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="com.widowsoftware.daniel.fotocpfl.MainActivity"
-    android:background="@drawable/borda">
+    android:background="#a8e3fa">
 
     <FrameLayout
-        android:layout_width="365dp"
-        android:layout_height="310dp"
-        android:id="@+id/previewCamera"
-        android:layout_gravity="right"
-        android:layout_marginTop="15dp"
-        android:layout_marginRight="15dp" />
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/comBorda">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:id="@+id/previewCamera"
+            android:layout_gravity="right"
+            android:foreground="#00ffffff"
+            android:background="#ffffff" >
+
+        </FrameLayout>
+
+    </FrameLayout>
 
     <Button
         android:id="@+id/button_image"
@@ -21,7 +30,8 @@
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
         android:onClick="takePicture"
-        android:text="Tirar foto!"
-        android:layout_gravity="bottom|center_horizontal" />
+        android:layout_gravity="bottom|center_horizontal"
+        android:background="@android:drawable/ic_menu_camera"
+        android:layout_marginBottom="25dp" />
 
 </FrameLayout>
